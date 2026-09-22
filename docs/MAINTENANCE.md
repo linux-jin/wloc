@@ -27,4 +27,4 @@
 
 ## 自动检查
 
-GitHub Actions 在 push / pull_request 时使用只读仓库权限，安装 worker 锁定依赖，执行检查、测试及两种构建。不包含部署凭据或自动发布操作。配置尚未填写真实仓库时，普通检查仍可运行，发布检查会明确阻止遗漏。
+GitHub Actions 的 Validate 工作流在 push / pull_request 时使用只读仓库权限，安装 worker 锁定依赖，执行检查、测试及两种构建，不读取部署凭据。Deploy Worker 仅在 `main` 推送或手动触发时运行，需要仓库 Secret `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。配置尚未填写真实仓库时，普通检查仍可运行，发布检查会明确阻止遗漏。

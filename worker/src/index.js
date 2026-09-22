@@ -1,6 +1,7 @@
 import { Hono } from "hono/tiny";
 import { getPageHtml } from "./page.js";
 import { parseCoords, gcj02ToWgs84, toWgs84, round6, inRange } from "./parse.js";
+import { isFavId, readFavorites, writeFavorites } from "./favorites.js";
 
 const app = new Hono();
 
@@ -10,11 +11,16 @@ app.use('/api/*', async (c, next) => {
   await next();
 });
 
+function corsJson(c, body, status) {
+  c.header("Access-Control-Allow-Origin", "*");
+  return c.json(body, status || 200);
+}
+
 app.get("/", (c) => {
   return c.html(getPageHtml());
 });
 
-// 地图链接解析: 供快捷指令调用。
+// 解析地图链接: 供快捷指令调用。
 // GET /api/parse?u=<链接>&format=json&cs=<gcj|none>
 //   返回 {lat, lon, name}; 高德/苹果地图(中国大陆均为 GCJ-02)自动转 WGS84; 境外坐标自动跳过(out_of_china)。cs=none 可强制不转换。
 //   不带 format=json 时返回纯文本 "lat=..&lon=.." 片段。
@@ -40,6 +46,35 @@ app.get("/api/parse", async (c) => {
   } catch (e) {
     c.header("Access-Control-Allow-Origin", "*");
     return c.json({ error: String(e && e.message ? e.message : e) }, 422);
+  }
+});
+
+// 收藏: 按同步码存在 KV。没有绑定 FAVORITES 时返回 501, 页面回退到 localStorage。
+app.get("/api/favorites", async (c) => {
+  const kv = c.env && c.env.FAVORITES;
+  if (!kv) return corsJson(c, { error: "未配置收藏存储 (KV)" }, 501);
+  const id = (c.req.query("id") || "").trim().toLowerCase();
+  if (!isFavId(id)) return corsJson(c, { error: "无效同步码" }, 422);
+  const favs = await readFavorites(kv, id);
+  return corsJson(c, { id, favs });
+});
+
+app.post("/api/favorites", async (c) => {
+  const kv = c.env && c.env.FAVORITES;
+  if (!kv) return corsJson(c, { error: "未配置收藏存储 (KV)" }, 501);
+  let body;
+  try {
+    body = await c.req.json();
+  } catch (e) {
+    return corsJson(c, { error: "无效 JSON" }, 422);
+  }
+  const id = String(body && body.id ? body.id : "").trim().toLowerCase();
+  if (!isFavId(id)) return corsJson(c, { error: "无效同步码" }, 422);
+  try {
+    const favs = await writeFavorites(kv, id, body.favs);
+    return corsJson(c, { id, favs });
+  } catch (e) {
+    return corsJson(c, { error: String(e && e.message ? e.message : e) }, 422);
   }
 });
 

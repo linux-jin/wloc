@@ -25,9 +25,24 @@ npx wrangler login
 npm run deploy
 ```
 
-`build:check` 是 dry-run，不上传或发布。`deploy` 会真正写入 Cloudflare。需要独立项目名时，修改 `wrangler.jsonc` 的 `name`，避免覆盖自己已有的同名 Worker。配置没有绑定 KV、数据库或账户 ID。
+`build:check` 是 dry-run，不上传或发布。`deploy` 会真正写入 Cloudflare。需要独立项目名时，修改 `wrangler.jsonc` 的 `name`，避免覆盖自己已有的同名 Worker。`wrangler.jsonc` / `wrangler.pages.jsonc` 声明了 FAVORITES KV 绑定、不写 namespace id；本地 `wrangler dev` 用模拟存储，首次 `deploy` 由 Wrangler 自动创建并绑定。本地 `wrangler login` 不需要把账户 ID 写进仓库；GitHub Actions 部署则通过 Secret 提供 Account ID。不需要数据库。
 
 从部署输出取得站点 URL，填写根目录 `project.config.json` 的 `siteUrl`，重新生成并提交模块。发布源码应与线上运行版本一致；网页底部提供源码入口。若从发布 tag 部署，可将配置中的 `branch` 设为相应 tag 后生成。
+
+## GitHub Actions 自动部署
+
+推送到 `main` 或在 Actions 里手动运行 **Deploy Worker**，会先跑检查和测试，再执行 `worker` 目录的 `npm run deploy`。使用锁文件里的 Wrangler，不另装 Cloudflare 官方 Action。
+
+在仓库 **Settings → Secrets and variables → Actions** 添加：
+
+| Secret | 值 |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token |
+| `CLOUDFLARE_ACCOUNT_ID` | 控制台右栏的 Account ID |
+
+Token 建议用「Edit Cloudflare Workers」模板，并额外打开 **Account → Workers KV Storage → Edit**（首次部署要自动创建 `FAVORITES` 命名空间）。不要把 token 写进仓库或 wrangler 配置。
+
+Validate 工作流仍然只做检查、不部署，也不读取这两项 Secret。
 
 ## Cloudflare Pages
 
@@ -48,6 +63,7 @@ npm run pages:deploy
 - 首页正常加载，底部源码入口指向实际发布仓库。
 - `/api/parse?u=31.230400,121.473700&format=json` 返回对应 lat/lon，并带 `Cache-Control: no-store`。
 - `/api/parse?format=json` 返回 422，说明输入缺失。
+- `/api/favorites?id=0123456789abcdef` 返回空收藏列表（200）。无效同步码返回 422。
 - GitHub raw 模块中的两个脚本 URL 和图标可匿名访问。
 - 真机检查保存、查询、清除，以及定位响应是否被拦截；网页成功不能替代这一步。
 

@@ -116,6 +116,18 @@ body { font-family:-apple-system,system-ui,"SF Pro","Helvetica Neue",sans-serif;
       <h3>收藏的位置</h3>
       <button class="btn btn-sm btn-secondary" onclick="clearAllFav()" id="clearAllBtn" style="display:none">清空全部</button>
     </div>
+    <div id="favSync" style="display:none;font-size:12px;color:var(--gray);margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>同步码</span>
+        <code id="favIdLabel" class="coords" style="padding:4px 8px;font-size:12px"></code>
+        <button class="btn btn-sm btn-secondary" onclick="copyFavId()">复制</button>
+      </div>
+      <div class="input-row" style="margin-top:8px">
+        <input id="favIdInput" placeholder="在其他浏览器粘贴同步码" maxlength="16" autocomplete="off" />
+        <button class="btn btn-secondary" style="flex:none;min-width:56px" onclick="switchFavId()">切换</button>
+      </div>
+      <div style="font-size:11px;margin-top:6px">收藏按同步码存在 Cloudflare KV，换设备粘贴即可。知道同步码的人可以读写这份列表。</div>
+    </div>
     <div id="favList" class="fav-list"></div>
   </div>
   <div class="card">
@@ -168,6 +180,11 @@ if (typeof L === 'undefined') {
 ${GCJ_BROWSER_JS}
 const SAVE_API = 'https://gs-loc.apple.com/wloc-settings/save';
 const FAV_KEY = 'wloc_favorites';
+const FAV_ID_KEY = 'wloc_fid';
+const FAV_ID_RE = /^[0-9a-f]{16}$/;
+let favCache = [];
+let favRemote = false;
+let favId = getOrCreateFavId();
 // lat/lon 恒为 WGS84 —— 这是写进设备、也是 wloc 唯一认的坐标系。
 // 底图可能是 GCJ-02 图源, 屏幕上的经纬度与它并不相等, 换算集中在 toDisplay/
 // fromDisplay 两个函数里, 其它地方一律不碰。
@@ -241,12 +258,97 @@ function showError(show) {
   document.getElementById('errorBanner').style.display = show ? 'block' : 'none';
 }
 
-/* ---- Favorites (localStorage) ---- */
-function getFavs() {
+/* ---- Favorites (KV via sync code, localStorage fallback) ---- */
+function getOrCreateFavId() {
+  let id = '';
+  try { id = (localStorage.getItem(FAV_ID_KEY) || '').toLowerCase(); } catch (e) {}
+  if (!FAV_ID_RE.test(id)) {
+    const b = new Uint8Array(8);
+    crypto.getRandomValues(b);
+    id = Array.from(b, function(x) { return x.toString(16).padStart(2, '0'); }).join('');
+    try { localStorage.setItem(FAV_ID_KEY, id); } catch (e) {}
+  }
+  return id;
+}
+function getLocalFavs() {
   try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch(e) { return []; }
 }
-function saveFavs(favs) {
-  localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+function getFavs() { return favCache; }
+function showFavSync(on) {
+  const el = document.getElementById('favSync');
+  const label = document.getElementById('favIdLabel');
+  if (el) el.style.display = on ? '' : 'none';
+  if (label) label.textContent = favId;
+}
+async function loadFavs() {
+  try {
+    const r = await fetch('/api/favorites?id=' + encodeURIComponent(favId), { cache:'no-store' });
+    if (r.status === 501) throw new Error('no-kv');
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'load failed');
+    favRemote = true;
+    const remote = Array.isArray(d.favs) ? d.favs : [];
+    const local = getLocalFavs();
+    if (local.length) {
+      const seen = {};
+      const merged = [];
+      remote.concat(local).forEach(function(f) {
+        const k = String(f.lat) + ',' + String(f.lon) + '|' + String(f.name);
+        if (seen[k]) return;
+        seen[k] = 1;
+        merged.push(f);
+      });
+      favCache = merged;
+      try { await saveFavs(merged); } catch (e) {}
+      try { localStorage.removeItem(FAV_KEY); } catch (e) {}
+    } else {
+      favCache = remote;
+    }
+    showFavSync(true);
+  } catch (e) {
+    favRemote = false;
+    favCache = getLocalFavs();
+    showFavSync(false);
+  }
+}
+async function saveFavs(favs) {
+  favCache = favs;
+  if (!favRemote) {
+    localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+    return;
+  }
+  const r = await fetch('/api/favorites', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({ id: favId, favs: favs })
+  });
+  const d = await r.json().catch(function() { return {}; });
+  if (!r.ok) throw new Error(d.error || '保存收藏失败');
+  if (Array.isArray(d.favs)) favCache = d.favs;
+}
+async function copyFavId() {
+  try {
+    await navigator.clipboard.writeText(favId);
+    toast('已复制同步码');
+  } catch (e) {
+    toast(favId, 4000);
+  }
+}
+async function switchFavId() {
+  const next = (document.getElementById('favIdInput').value || '').trim().toLowerCase();
+  if (!FAV_ID_RE.test(next)) { toast('同步码应为 16 位十六进制'); return; }
+  favId = next;
+  try { localStorage.setItem(FAV_ID_KEY, favId); } catch (e) {}
+  document.getElementById('favIdLabel').textContent = favId;
+  document.getElementById('favIdInput').value = '';
+  await loadFavs();
+  renderFavs();
+  toast('已切换同步码');
+}
+async function initFavs() {
+  await loadFavs();
+  renderFavs();
 }
 
 function renderFavs() {
@@ -287,12 +389,13 @@ function closeFavModal() {
   document.getElementById('favModal').classList.remove('show');
 }
 
-function confirmFav() {
+async function confirmFav() {
   const name = document.getElementById('favNameInput').value.trim();
   if (!name) { toast('请输入备注名称'); return; }
   const favs = getFavs();
   favs.push({ name, lon, lat, time: new Date().toISOString() });
-  saveFavs(favs);
+  try { await saveFavs(favs); }
+  catch (e) { toast('收藏保存失败', 3000); return; }
   closeFavModal();
   renderFavs();
   toast('已收藏: ' + name);
@@ -305,19 +408,21 @@ function loadFav(i) {
   toast(favs[i].name + ' (' + favs[i].lon.toFixed(4) + ', ' + favs[i].lat.toFixed(4) + ')');
 }
 
-function delFav(i) {
+async function delFav(i) {
   const favs = getFavs();
   if (!favs[i]) return;
   const name = favs[i].name;
   favs.splice(i, 1);
-  saveFavs(favs);
+  try { await saveFavs(favs); }
+  catch (e) { toast('删除失败', 3000); return; }
   renderFavs();
   toast('已删除: ' + name);
 }
 
-function clearAllFav() {
+async function clearAllFav() {
   if (!confirm('确定清空所有收藏？')) return;
-  saveFavs([]);
+  try { await saveFavs([]); }
+  catch (e) { toast('清空失败', 3000); return; }
   renderFavs();
   toast('已清空所有收藏');
 }
@@ -484,8 +589,9 @@ document.addEventListener('paste', e => {
 document.getElementById('searchInput').addEventListener('keydown', e => { if(e.key==='Enter') searchPlace(); });
 document.getElementById('urlInput').addEventListener('keydown', e => { if(e.key==='Enter') parseUrl(); });
 document.getElementById('favNameInput').addEventListener('keydown', e => { if(e.key==='Enter') confirmFav(); });
+document.getElementById('favIdInput').addEventListener('keydown', e => { if(e.key==='Enter') switchFavId(); });
 
-renderFavs();
+initFavs();
 queryActive();
 <\/script>
 <section class="panel" aria-labelledby="module-links-title">

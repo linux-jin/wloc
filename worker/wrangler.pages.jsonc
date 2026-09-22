@@ -3,5 +3,7 @@
   // 与 wrangler.jsonc 保持同步 —— 两边跑的是同一份代码, compatibility_date
   // 一旦漂开, Pages 和 Workers 就会落在不同的运行时语义上。
   "compatibility_date": "2026-08-05",
-  "pages_build_output_dir": "./dist"
+  "pages_build_output_dir": "./dist",
+  // 与 wrangler.jsonc 保持同一 binding 名。不写 id, 交给 Wrangler 自动供给。
+  "kv_namespaces": [{ "binding": "FAVORITES" }]
 }

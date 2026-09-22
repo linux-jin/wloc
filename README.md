@@ -559,7 +559,7 @@ npx wrangler login
 npm run deploy
 ```
 
-本项目使用 Node.js 22 或更新版本；Wrangler 已固定到锁文件。部署不需要 KV 或数据库。Cloudflare Pages 配置也保留，见[部署说明](docs/DEPLOYMENT.md)。
+本项目使用 Node.js 22 或更新版本；Wrangler 已固定到锁文件。收藏同步使用 Cloudflare KV，Wrangler 4 在首次 deploy 时自动创建 FAVORITES 命名空间，无需预先填写 id。也可在仓库配置 Cloudflare Secret 后，由 GitHub Actions 向 `main` 推送时自动部署，见[部署说明](docs/DEPLOYMENT.md)。
 
 原作者的公共 Worker 和 Pages 不再作为默认选点服务；上方设置位置快捷指令已使用本仓库的新解析服务，自行部署时可按实际地址迁移。新维护者在 `project.config.json` 中填写仓库、发布分支及可选的选点站点，再运行：
 
@@ -578,12 +578,12 @@ npm run check:release
 WLOC 响应 → dist/wloc.js 读取配置并修改返回坐标
 ```
 
-- `worker/src/`：网页、地图链接解析、GCJ-02/BD-09/WGS84 转换与 HTTP 路由。
+- `worker/src/`：网页、地图链接解析、收藏同步、GCJ-02/BD-09/WGS84 转换与 HTTP 路由。
 - `dist/`：上游已打包的两个代理脚本；**当前恢复版本缺少完整的原始脚本构建工程**，不能声称已实现可复现重建。
 - `modules/`：五种客户端订阅文件，由 `templates/modules/` 和项目配置生成。
 - `worker/test/`：解析、Stash 输出及 HTTP 行为的自动测试。
 
-生效坐标保存在代理客户端的 `wloc_settings`；收藏保存在浏览器 `localStorage`，两者独立。Worker 的解析接口不主动写数据库或应用日志，并返回 `Cache-Control: no-store`。但地图、搜索、CDN 和托管平台会接收相应网络请求，不能将其理解为整个链路不产生记录。详见[安全与隐私说明](SECURITY.md)。
+生效坐标保存在代理客户端的 `wloc_settings`；收藏按同步码存在 Worker 绑定的 KV，浏览器只记住同步码（KV 不可用时回退 localStorage）。两者独立。Worker 的解析接口不写 KV；收藏接口会。API 返回 `Cache-Control: no-store`。但地图、搜索、CDN 和托管平台会接收相应网络请求，不能将其理解为整个链路不产生记录。详见[安全与隐私说明](SECURITY.md)。
 
 页面内部使用 WGS84。中国大陆的苹果地图/高德、百度链接按上游逻辑进行坐标转换；港澳台及境外存在不同规则，已用回归用例覆盖部分边界。外部地图链接格式变化仍可能影响解析。
 

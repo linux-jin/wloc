@@ -6,5 +6,8 @@
   "compatibility_date": "2026-08-05",
   // 关闭持久化日志采集, 与 README 中「/api/parse 不记日志」的说法对齐。
   // 调试仍可用 `wrangler tail`, 那是实时流, 不落盘。
-  "observability": { "enabled": false }
+  "observability": { "enabled": false },
+  // 收藏同步。不写 id: Wrangler 4 会在 wrangler dev 用本地模拟,
+  // 第一次 wrangler deploy 时自动创建并绑定命名空间。
+  "kv_namespaces": [{ "binding": "FAVORITES" }]
 }
