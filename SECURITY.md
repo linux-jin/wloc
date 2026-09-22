@@ -2,7 +2,7 @@
 
 本工具只适用于自己拥有或获授权的设备。MITM 证书由用户的客户端产生，本仓库不分发 CA 私钥或设备配置文件。
 
-生效坐标在代理客户端的持久化存储中。收藏存在这个 Worker 的 Cloudflare KV 上一份列表，打开页面即可读写，没有登录。公开实例等于公开这份收藏。KV 不可用时页面回退到浏览器 localStorage。页面可以向 Apple 域名的设置路径请求读写，由启用模块的客户端拦截。这个 GET/CORS 设计继承自上游，并不是受身份认证保护的远程 API。
+生效坐标在代理客户端的持久化存储中。收藏存在这个 Worker 的 Cloudflare KV 上一份列表，打开页面即可读写，没有登录。公开实例等于公开这份收藏。可在 Worker 上配置 secret `CLOUDFLARE_ACCOUNT_PASSWORD` 做进页校验；收藏接口同样要登录 cookie。`/api/parse` 仍可匿名调用。密码不要写入仓库。KV 不可用时页面回退到浏览器 localStorage。页面可以向 Apple 域名的设置路径请求读写，由启用模块的客户端拦截。这个 GET/CORS 设计继承自上游，并不是受身份认证保护的远程 API。
 
 地图瓦片、搜索和 Leaflet CDN 会接收浏览器请求；地图链接解析会由 Worker 向目标服务请求数据。解析接口不持久化结果；收藏接口把坐标列表写入 KV。默认 Workers observability 关闭，并对 API 设置 no-store；托管平台、网络层或调试工具仍可能记录请求。不要承诺整个链路零日志。
 

@@ -2,6 +2,17 @@ import { Hono } from "hono/tiny";
 import { getPageHtml } from "./page.js";
 import { parseCoords, gcj02ToWgs84, toWgs84, round6, inRange } from "./parse.js";
 import { readFavorites, writeFavorites } from "./favorites.js";
+import {
+  AUTH_COOKIE,
+  authToken,
+  equal,
+  gateEnabled,
+  getLoginHtml,
+  isAuthed,
+  makeAuthCookie,
+  readPostedPassword,
+  sitePassword,
+} from "./auth.js";
 
 const app = new Hono();
 
@@ -15,6 +26,27 @@ function corsJson(c, body, status) {
   c.header("Access-Control-Allow-Origin", "*");
   return c.json(body, status || 200);
 }
+
+// 设了 CLOUDFLARE_ACCOUNT_PASSWORD 就要进门。/api/parse 留给快捷指令, 不挡。
+app.use("*", async (c, next) => {
+  if (!gateEnabled(c.env)) return next();
+  const path = new URL(c.req.url).pathname;
+  if (path === "/login" || path === "/api/parse") return next();
+  if (await isAuthed(c, sitePassword(c.env))) return next();
+  if (path.startsWith("/api/")) return corsJson(c, { error: "未登录" }, 401);
+  return c.html(getLoginHtml(false));
+});
+
+app.get("/login", (c) => c.html(getLoginHtml(false)));
+
+app.post("/login", async (c) => {
+  if (!gateEnabled(c.env)) return c.redirect("/");
+  const pw = sitePassword(c.env);
+  const posted = await readPostedPassword(c);
+  if (!equal(posted, pw)) return c.html(getLoginHtml(true));
+  c.header("Set-Cookie", makeAuthCookie(await authToken(pw), c));
+  return c.redirect("/");
+});
 
 app.get("/", (c) => {
   return c.html(getPageHtml());

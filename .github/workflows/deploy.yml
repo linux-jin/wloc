@@ -35,5 +35,15 @@ jobs:
       - run: npm --prefix worker ci
       - run: npm run check
       - run: npm test
+      - name: Sync site password
+        working-directory: worker
+        env:
+          SITE_PASSWORD: ${{ secrets.CLOUDFLARE_ACCOUNT_PASSWORD }}
+        run: |
+          if [ -z "$SITE_PASSWORD" ]; then
+            echo "::error::缺少仓库 Secret CLOUDFLARE_ACCOUNT_PASSWORD"
+            exit 1
+          fi
+          printf '%s' "$SITE_PASSWORD" | npx wrangler secret put CLOUDFLARE_ACCOUNT_PASSWORD
       - run: npm run deploy
         working-directory: worker

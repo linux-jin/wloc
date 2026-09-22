@@ -44,6 +44,15 @@ Token 建议用「Edit Cloudflare Workers」模板，并额外打开 **Account �
 
 Validate 工作流仍然只做检查、不部署，也不读取这两项 Secret。
 
+进页密码用 Worker secret，不要写进仓库：
+
+```sh
+cd worker
+npx wrangler secret put CLOUDFLARE_ACCOUNT_PASSWORD
+```
+
+设了之后打开站点先输入密码。不设则和以前一样直接进。快捷指令调用的 `/api/parse` 不走这道门。
+
 ## Cloudflare Pages
 
 ```sh

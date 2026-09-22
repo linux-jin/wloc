@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 选点页可设 Worker secret CLOUDFLARE_ACCOUNT_PASSWORD，打开先输入密码；不限字数格式。快捷指令解析接口不挡。
 - 增加 GitHub Actions：向 main 推送或手动触发时部署 Cloudflare Worker。
 - 选点页收藏写入 Cloudflare KV 上一份列表，打开即可存删；KV 未绑定或不可用时仍回退 localStorage。
 - README 直接显示完整模块订阅和快捷指令安装 URL；选点网页增加五种客户端的订阅地址列表。
