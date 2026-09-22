@@ -63,7 +63,7 @@ npm run pages:deploy
 - 首页正常加载，底部源码入口指向实际发布仓库。
 - `/api/parse?u=31.230400,121.473700&format=json` 返回对应 lat/lon，并带 `Cache-Control: no-store`。
 - `/api/parse?format=json` 返回 422，说明输入缺失。
-- `/api/favorites?id=0123456789abcdef` 返回空收藏列表（200）。无效同步码返回 422。
+- `/api/favorites` 返回空收藏列表（200）。
 - GitHub raw 模块中的两个脚本 URL 和图标可匿名访问。
 - 真机检查保存、查询、清除，以及定位响应是否被拦截；网页成功不能替代这一步。
 

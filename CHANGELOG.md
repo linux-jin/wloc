@@ -3,7 +3,7 @@
 ## Unreleased
 
 - 增加 GitHub Actions：向 main 推送或手动触发时部署 Cloudflare Worker。
-- 选点页收藏改为按同步码写入 Cloudflare KV，换浏览器可拉取；KV 未绑定或不可用时仍回退 localStorage。
+- 选点页收藏写入 Cloudflare KV 上一份列表，打开即可存删；KV 未绑定或不可用时仍回退 localStorage。
 - README 直接显示完整模块订阅和快捷指令安装 URL；选点网页增加五种客户端的订阅地址列表。
 - 补回原作者的设置位置、清理恢复快捷指令分享链接与地图调用步骤，补充旧 Worker 地址的迁移方法。
 - 从原作者 529fcd8 恢复维护基线，保留 46 条 Git 历史和 AGPL LICENSE。

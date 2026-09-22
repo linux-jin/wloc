@@ -583,7 +583,7 @@ WLOC 响应 → dist/wloc.js 读取配置并修改返回坐标
 - `modules/`：五种客户端订阅文件，由 `templates/modules/` 和项目配置生成。
 - `worker/test/`：解析、Stash 输出及 HTTP 行为的自动测试。
 
-生效坐标保存在代理客户端的 `wloc_settings`；收藏按同步码存在 Worker 绑定的 KV，浏览器只记住同步码（KV 不可用时回退 localStorage）。两者独立。Worker 的解析接口不写 KV；收藏接口会。API 返回 `Cache-Control: no-store`。但地图、搜索、CDN 和托管平台会接收相应网络请求，不能将其理解为整个链路不产生记录。详见[安全与隐私说明](SECURITY.md)。
+生效坐标保存在代理客户端的 `wloc_settings`；收藏存在这个 Worker 的 KV 上一份列表（KV 不可用时回退 localStorage）。两者独立。Worker 的解析接口不写 KV；收藏接口会。API 返回 `Cache-Control: no-store`。但地图、搜索、CDN 和托管平台会接收相应网络请求，不能将其理解为整个链路不产生记录。详见[安全与隐私说明](SECURITY.md)。
 
 页面内部使用 WGS84。中国大陆的苹果地图/高德、百度链接按上游逻辑进行坐标转换；港澳台及境外存在不同规则，已用回归用例覆盖部分边界。外部地图链接格式变化仍可能影响解析。
 

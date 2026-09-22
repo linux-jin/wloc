@@ -1,7 +1,7 @@
 import { Hono } from "hono/tiny";
 import { getPageHtml } from "./page.js";
 import { parseCoords, gcj02ToWgs84, toWgs84, round6, inRange } from "./parse.js";
-import { isFavId, readFavorites, writeFavorites } from "./favorites.js";
+import { readFavorites, writeFavorites } from "./favorites.js";
 
 const app = new Hono();
 
@@ -49,14 +49,12 @@ app.get("/api/parse", async (c) => {
   }
 });
 
-// 收藏: 按同步码存在 KV。没有绑定 FAVORITES 时返回 501, 页面回退到 localStorage。
+// 收藏: 这个 Worker 上一份列表。没有绑定 FAVORITES 时返回 501, 页面回退到 localStorage。
 app.get("/api/favorites", async (c) => {
   const kv = c.env && c.env.FAVORITES;
   if (!kv) return corsJson(c, { error: "未配置收藏存储 (KV)" }, 501);
-  const id = (c.req.query("id") || "").trim().toLowerCase();
-  if (!isFavId(id)) return corsJson(c, { error: "无效同步码" }, 422);
-  const favs = await readFavorites(kv, id);
-  return corsJson(c, { id, favs });
+  const favs = await readFavorites(kv);
+  return corsJson(c, { favs });
 });
 
 app.post("/api/favorites", async (c) => {
@@ -68,11 +66,9 @@ app.post("/api/favorites", async (c) => {
   } catch (e) {
     return corsJson(c, { error: "无效 JSON" }, 422);
   }
-  const id = String(body && body.id ? body.id : "").trim().toLowerCase();
-  if (!isFavId(id)) return corsJson(c, { error: "无效同步码" }, 422);
   try {
-    const favs = await writeFavorites(kv, id, body.favs);
-    return corsJson(c, { id, favs });
+    const favs = await writeFavorites(kv, body && body.favs);
+    return corsJson(c, { favs });
   } catch (e) {
     return corsJson(c, { error: String(e && e.message ? e.message : e) }, 422);
   }
